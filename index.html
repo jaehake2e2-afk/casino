@@ -19,11 +19,11 @@ main { flex: 1; overflow-y: auto; padding: 12px; position: relative; }
 .bottom-nav button.active { color: #ffd700; }
 .bottom-nav button svg { width: 22px; height: 22px; }
 .auth-box, .modal { background: #1a1a2e; border-radius: 12px; padding: 20px; margin: 20px auto; max-width: 360px; }
-.auth-box input, .modal input, .modal select { width: 100%; padding: 12px; margin: 8px 0; border-radius: 8px; border: 1px solid #333; background: #0f0f1a; color: #fff; font-size: 15px; }
+.auth-box input, .modal input { width: 100%; padding: 12px; margin: 8px 0; border-radius: 8px; border: 1px solid #333; background: #0f0f1a; color: #fff; font-size: 15px; }
 .auth-box button, .modal button, .game-btn { width: 100%; padding: 14px; background: #e94560; border: none; border-radius: 8px; color: #fff; font-weight: 700; font-size: 16px; cursor: pointer; margin-top: 8px; }
 .game-btn.secondary { background: #16213e; border: 1px solid #444; }
 .card-row { display: flex; gap: 8px; min-height: 90px; margin: 12px 0; align-items: center; }
-.card { width: 60px; height: 84px; background: #fff; color: #111; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 20px; box-shadow: 0 2px 6px rgba(0,0,0,.4); position: relative; }
+.card { width: 60px; height: 84px; background: #fff; color: #111; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 20px; box-shadow: 0 2px 6px rgba(0,0,0,.4); }
 .card.red { color: #c00; }
 .card.back { background: linear-gradient(135deg, #1a1a2e, #e94560); color: transparent; }
 .bet-area { display: flex; gap: 8px; margin: 12px 0; }
@@ -32,7 +32,7 @@ main { flex: 1; overflow-y: auto; padding: 12px; position: relative; }
 .bet-box .label { font-size: 13px; color: #aaa; }
 .bet-box .amount { font-size: 16px; font-weight: 700; color: #ffd700; margin-top: 4px; }
 .slot-reels { display: flex; gap: 12px; justify-content: center; margin: 30px 0; }
-.reel { width: 80px; height: 100px; background: #111; border: 3px solid #ffd700; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 48px; font-weight: 900; overflow: hidden; }
+.reel { width: 80px; height: 100px; background: #111; border: 3px solid #ffd700; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 48px; font-weight: 900; }
 .chat-list { height: calc(100dvh - 180px); overflow-y: auto; padding-bottom: 60px; }
 .chat-msg { background: #16213e; border-radius: 10px; padding: 8px 12px; margin: 6px 0; font-size: 14px; }
 .chat-msg .nick { color: #ffd700; font-weight: 700; margin-right: 6px; }
@@ -100,7 +100,7 @@ main { flex: 1; overflow-y: auto; padding: 12px; position: relative; }
           <div class="reel" id="reel2">7</div>
           <div class="reel" id="reel3">7</div>
         </div>
-        <input id="slotBet" type="number" min="100" max="2000" value="100" placeholder="100~2000">
+        <input id="slotBet" type="number" min="100" max="2000" value="100">
         <button class="game-btn" onclick="spinSlot()">스핀</button>
         <div id="slotResult" style="text-align:center;margin-top:12px"></div>
       </div>
@@ -146,7 +146,7 @@ main { flex: 1; overflow-y: auto; padding: 12px; position: relative; }
 </div>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script>
 const firebaseConfig = {
   apiKey: "AIzaSyApAaz7xm1mC7pj0biF-XCimIeKkBPUnRA",
@@ -159,22 +159,26 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
-const db = firebase.database();
+const db = firebase.firestore();
 
 let currentUser = null;
 let userData = null;
 let selectedSide = null;
 let slotPlays = 0;
 let bjState = null;
+let baccUnsub = null;
+let chatUnsub = null;
+let boardUnsub = null;
 
 auth.onAuthStateChanged(async user => {
   if (user) {
     currentUser = user;
-    const snap = await db.ref('users/' + user.uid).once('value');
-    userData = snap.val();
-    if (!userData) {
+    const doc = await db.collection('users').doc(user.uid).get();
+    if (!doc.exists) {
       userData = { nickname: '게스트', balance: 500000, id: user.email.split('@')[0] };
-      await db.ref('users/' + user.uid).set(userData);
+      await db.collection('users').doc(user.uid).set(userData);
+    } else {
+      userData = doc.data();
     }
     document.getElementById('authBox').style.display = 'none';
     document.getElementById('homeContent').style.display = 'block';
@@ -185,6 +189,9 @@ auth.onAuthStateChanged(async user => {
   } else {
     currentUser = null;
     userData = null;
+    if (baccUnsub) baccUnsub();
+    if (chatUnsub) chatUnsub();
+    if (boardUnsub) boardUnsub();
     document.getElementById('authBox').style.display = 'block';
     document.getElementById('homeContent').style.display = 'none';
     updateHeader();
@@ -211,7 +218,7 @@ async function doSignup() {
   try {
     const email = id + '@casi.local';
     const cred = await auth.createUserWithEmailAndPassword(email, pass);
-    await db.ref('users/' + cred.user.uid).set({ id, nickname: nick, balance: 500000 });
+    await db.collection('users').doc(cred.user.uid).set({ id, nickname: nick, balance: 500000 });
     err.textContent = '';
   } catch (e) { err.textContent = e.message; }
 }
@@ -250,52 +257,53 @@ async function placeBaccBet() {
   if (!currentUser || !selectedSide) return alert('사이드 선택');
   const amt = parseInt(document.getElementById('baccBetAmount').value) || 0;
   if (amt < 100 || amt > userData.balance) return alert('잔액 부족 또는 최소 100');
-  const roundRef = db.ref('baccarat/current');
-  const snap = await roundRef.once('value');
-  const round = snap.val() || { phase: 'betting', playerBets: 0, bankerBets: 0, tieBets: 0, bets: {} };
-  if (round.phase !== 'betting') return alert('베팅 종료');
-  round.bets = round.bets || {};
-  round.bets[currentUser.uid] = { side: selectedSide, amount: amt };
-  round[selectedSide + 'Bets'] = (round[selectedSide + 'Bets'] || 0) + amt;
-  await roundRef.set(round);
+  const roundRef = db.collection('baccarat').doc('current');
+  await db.runTransaction(async tx => {
+    const snap = await tx.get(roundRef);
+    const r = snap.exists ? snap.data() : { phase: 'betting', start: Date.now(), playerBets: 0, bankerBets: 0, tieBets: 0, bets: {} };
+    if (r.phase !== 'betting') throw new Error('베팅 종료');
+    r.bets = r.bets || {};
+    r.bets[currentUser.uid] = { side: selectedSide, amount: amt };
+    r[selectedSide + 'Bets'] = (r[selectedSide + 'Bets'] || 0) + amt;
+    tx.set(roundRef, r);
+  });
   userData.balance -= amt;
-  await db.ref('users/' + currentUser.uid + '/balance').set(userData.balance);
+  await db.collection('users').doc(currentUser.uid).update({ balance: userData.balance });
   updateHeader();
 }
 
-let baccListener = null;
 function listenBacc() {
-  if (baccListener) db.ref('baccarat/current').off('value', baccListener);
-  baccListener = db.ref('baccarat/current').on('value', snap => {
-    const r = snap.val();
+  if (baccUnsub) baccUnsub();
+  baccUnsub = db.collection('baccarat').doc('current').onSnapshot(snap => {
+    const r = snap.exists ? snap.data() : null;
     if (!r) {
-      db.ref('baccarat/current').set({ phase: 'betting', start: Date.now(), playerBets: 0, bankerBets: 0, tieBets: 0 });
+      db.collection('baccarat').doc('current').set({ phase: 'betting', start: Date.now(), playerBets: 0, bankerBets: 0, tieBets: 0, bets: {} });
       return;
     }
     document.getElementById('betPlayer').textContent = '₩' + (r.playerBets || 0).toLocaleString();
     document.getElementById('betBanker').textContent = '₩' + (r.bankerBets || 0).toLocaleString();
     document.getElementById('betTie').textContent = '₩' + (r.tieBets || 0).toLocaleString();
-    if (r.phase === 'betting' && Date.now() - r.start > 5000) {
-      startBaccDeal();
-    }
+    if (r.phase === 'betting' && Date.now() - (r.start || 0) > 5000) startBaccDeal();
     if (r.phase === 'dealing') renderBaccCards(r);
     if (r.phase === 'result' && r.winner) showBaccResult(r);
   });
 }
 
 async function startBaccDeal() {
-  const ref = db.ref('baccarat/current');
-  const snap = await ref.once('value');
-  const r = snap.val();
-  if (!r || r.phase !== 'betting') return;
-  const deck = shuffle([...Array(52)].map((_, i) => i));
-  const cards = { player: [], banker: [] };
-  let idx = 0;
-  for (let i = 0; i < 2; i++) {
-    cards.player.push(deck[idx++]);
-    cards.banker.push(deck[idx++]);
-  }
-  await ref.update({ phase: 'dealing', cards, deckIdx: idx, deck });
+  const roundRef = db.collection('baccarat').doc('current');
+  await db.runTransaction(async tx => {
+    const snap = await tx.get(roundRef);
+    const r = snap.data();
+    if (!r || r.phase !== 'betting') return;
+    const deck = shuffle([...Array(52)].map((_, i) => i));
+    const cards = { player: [], banker: [] };
+    let idx = 0;
+    for (let i = 0; i < 2; i++) {
+      cards.player.push(deck[idx++]);
+      cards.banker.push(deck[idx++]);
+    }
+    tx.update(roundRef, { phase: 'dealing', cards, deckIdx: idx });
+  });
   setTimeout(() => resolveBacc(), 6000);
 }
 
@@ -303,12 +311,8 @@ function renderBaccCards(r) {
   const pc = document.getElementById('playerCards');
   const bc = document.getElementById('bankerCards');
   pc.innerHTML = ''; bc.innerHTML = '';
-  (r.cards?.player || []).forEach((c, i) => {
-    setTimeout(() => pc.appendChild(makeCard(c)), i * 1500);
-  });
-  (r.cards?.banker || []).forEach((c, i) => {
-    setTimeout(() => bc.appendChild(makeCard(c)), i * 1500 + 750);
-  });
+  (r.cards?.player || []).forEach((c, i) => setTimeout(() => pc.appendChild(makeCard(c)), i * 1500));
+  (r.cards?.banker || []).forEach((c, i) => setTimeout(() => bc.appendChild(makeCard(c)), i * 1500 + 750));
 }
 
 function makeCard(idx) {
@@ -323,16 +327,18 @@ function makeCard(idx) {
 }
 
 async function resolveBacc() {
-  const ref = db.ref('baccarat/current');
-  const snap = await ref.once('value');
-  const r = snap.val();
-  if (!r || r.phase !== 'dealing') return;
-  const pVal = bacValue(r.cards.player);
-  const bVal = bacValue(r.cards.banker);
-  let winner = pVal > bVal ? 'player' : bVal > pVal ? 'banker' : 'tie';
-  await ref.update({ phase: 'result', winner, pVal, bVal });
-  setTimeout(() => {
-    db.ref('baccarat/current').set({ phase: 'betting', start: Date.now(), playerBets: 0, bankerBets: 0, tieBets: 0, bets: {} });
+  const roundRef = db.collection('baccarat').doc('current');
+  await db.runTransaction(async tx => {
+    const snap = await tx.get(roundRef);
+    const r = snap.data();
+    if (!r || r.phase !== 'dealing') return;
+    const pVal = bacValue(r.cards.player);
+    const bVal = bacValue(r.cards.banker);
+    const winner = pVal > bVal ? 'player' : bVal > pVal ? 'banker' : 'tie';
+    tx.update(roundRef, { phase: 'result', winner, pVal, bVal });
+  });
+  setTimeout(async () => {
+    await db.collection('baccarat').doc('current').set({ phase: 'betting', start: Date.now(), playerBets: 0, bankerBets: 0, tieBets: 0, bets: {} });
   }, 8000);
 }
 
@@ -345,13 +351,13 @@ function bacValue(cards) {
   return v % 10;
 }
 
-function showBaccResult(r) {
+async function showBaccResult(r) {
   if (!userData || !r.bets || !r.bets[currentUser.uid]) return;
   const my = r.bets[currentUser.uid];
   if (my.side === r.winner) {
     const payout = my.side === 'tie' ? my.amount * 8 : my.amount * 2;
     userData.balance += payout;
-    db.ref('users/' + currentUser.uid + '/balance').set(userData.balance);
+    await db.collection('users').doc(currentUser.uid).update({ balance: userData.balance });
     document.getElementById('winAmount').textContent = '₩' + payout.toLocaleString();
     document.querySelector('.win-box div').textContent = r.winner === 'player' ? '플레이어' : r.winner === 'banker' ? '뱅커' : '타이';
     document.getElementById('winOverlay').style.display = 'flex';
@@ -373,7 +379,7 @@ async function spinSlot() {
   const bet = Math.min(2000, Math.max(100, parseInt(document.getElementById('slotBet').value) || 100));
   if (bet > userData.balance) return alert('잔액 부족');
   userData.balance -= bet;
-  await db.ref('users/' + currentUser.uid + '/balance').set(userData.balance);
+  await db.collection('users').doc(currentUser.uid).update({ balance: userData.balance });
   updateHeader();
   slotPlays++;
   const winProb = Math.max(0.15, 0.6 - slotPlays * 0.03);
@@ -392,12 +398,10 @@ async function spinSlot() {
           if (win) {
             const payout = bet * 5;
             userData.balance += payout;
-            db.ref('users/' + currentUser.uid + '/balance').set(userData.balance);
+            db.collection('users').doc(currentUser.uid).update({ balance: userData.balance });
             document.getElementById('slotResult').textContent = `당첨! +₩${payout.toLocaleString()}`;
             updateHeader();
-          } else {
-            document.getElementById('slotResult').textContent = '꽝';
-          }
+          } else document.getElementById('slotResult').textContent = '꽝';
         }
       }
     }, 80);
@@ -405,13 +409,18 @@ async function spinSlot() {
 }
 
 function listenChat() {
-  db.ref('chat').limitToLast(50).on('child_added', snap => {
-    const m = snap.val();
-    const div = document.createElement('div');
-    div.className = 'chat-msg';
-    div.innerHTML = `<span class="nick">${m.nick}</span>${m.text}`;
-    document.getElementById('chatList').appendChild(div);
-    document.getElementById('chatList').scrollTop = 99999;
+  if (chatUnsub) chatUnsub();
+  chatUnsub = db.collection('chat').orderBy('ts').limitToLast(50).onSnapshot(snap => {
+    const list = document.getElementById('chatList');
+    list.innerHTML = '';
+    snap.forEach(doc => {
+      const m = doc.data();
+      const div = document.createElement('div');
+      div.className = 'chat-msg';
+      div.innerHTML = `<span class="nick">${m.nick}</span>${m.text}`;
+      list.appendChild(div);
+    });
+    list.scrollTop = 99999;
   });
 }
 
@@ -419,16 +428,17 @@ async function sendChat() {
   if (!userData) return;
   const text = document.getElementById('chatInput').value.trim();
   if (!text) return;
-  await db.ref('chat').push({ nick: userData.nickname, text, ts: Date.now() });
+  await db.collection('chat').add({ nick: userData.nickname, text, ts: Date.now() });
   document.getElementById('chatInput').value = '';
 }
 
 function listenBoard() {
-  db.ref('users').on('value', snap => {
+  if (boardUnsub) boardUnsub();
+  boardUnsub = db.collection('users').onSnapshot(snap => {
     const list = document.getElementById('boardList');
     list.innerHTML = '';
-    snap.forEach(c => {
-      const u = c.val();
+    snap.forEach(doc => {
+      const u = doc.data();
       const d = document.createElement('div');
       d.className = 'board-item';
       d.textContent = u.nickname + ' (₩' + (u.balance || 0).toLocaleString() + ')';
@@ -442,7 +452,7 @@ function startBlackjack() {
   const bet = parseInt(document.getElementById('bjBet').value) || 1000;
   if (bet > userData.balance) return alert('잔액 부족');
   userData.balance -= bet;
-  db.ref('users/' + currentUser.uid + '/balance').set(userData.balance);
+  db.collection('users').doc(currentUser.uid).update({ balance: userData.balance });
   updateHeader();
   const deck = shuffle([...Array(52)].map((_,i)=>i));
   bjState = { deck, player: [deck.pop(), deck.pop()], dealer: [deck.pop(), deck.pop()], bet, done: false };
@@ -455,7 +465,10 @@ function renderBJ() {
   const d = document.getElementById('bjDealer');
   p.innerHTML = ''; d.innerHTML = '';
   bjState.player.forEach(c => p.appendChild(makeCard(c)));
-  bjState.dealer.forEach((c,i) => d.appendChild(i===1 && !bjState.done ? Object.assign(makeCard(0), {className:'card back'}) : makeCard(c)));
+  bjState.dealer.forEach((c,i) => {
+    const card = i===1 && !bjState.done ? Object.assign(makeCard(0), {className:'card back', textContent:''}) : makeCard(c);
+    d.appendChild(card);
+  });
   document.getElementById('bjStatus').textContent = `플레이어: ${handValue(bjState.player)}`;
 }
 
@@ -496,7 +509,7 @@ async function endBJ() {
   else if (pv === dv) payout = bjState.bet;
   if (payout) {
     userData.balance += payout;
-    await db.ref('users/' + currentUser.uid + '/balance').set(userData.balance);
+    await db.collection('users').doc(currentUser.uid).update({ balance: userData.balance });
     updateHeader();
   }
   document.getElementById('bjStatus').textContent += ` | 딜러: ${dv} | ${payout ? '+' + payout : '손실'}`;
