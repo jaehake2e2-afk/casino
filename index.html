@@ -36,17 +36,10 @@ main { flex: 1; overflow-y: auto; padding: 8px; }
 .chip:active { transform: scale(0.95); }
 .slot-reels { display: flex; gap: 8px; justify-content: center; margin: 16px 0; }
 .reel { width: 64px; height: 80px; background: #0a0a10; border: 2px solid #f0c14b; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 36px; font-weight: 900; }
-.chat-list { height: calc(100dvh - 160px); overflow-y: auto; padding-bottom: 50px; }
-.chat-msg { background: #14141e; border-radius: 8px; padding: 6px 10px; margin: 4px 0; font-size: 13px; }
-.chat-msg .nick { color: #f0c14b; font-weight: 700; margin-right: 4px; }
-.chat-input { position: fixed; bottom: 52px; left: 0; right: 0; max-width: 420px; margin: 0 auto; display: flex; padding: 6px; background: #0c0c12; border-top: 1px solid #1f1f2a; }
-.chat-input input { flex: 1; padding: 10px; border-radius: 16px; border: 1px solid #2a2a38; background: #14141e; color: #fff; font-size: 14px; }
-.chat-input button { margin-left: 6px; padding: 0 14px; background: #c9a227; border: none; border-radius: 16px; color: #111; font-weight: 700; }
 .win-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.88); display: none; align-items: center; justify-content: center; z-index: 100; }
-.win-box { background: radial-gradient(circle, #3d2914, #1a0f08); border: 2px solid #f0c14b; border-radius: 12px; padding: 24px 20px; text-align: center; position: relative; }
+.win-box { background: radial-gradient(circle, #3d2914, #1a0f08); border: 2px solid #f0c14b; border-radius: 12px; padding: 24px 20px; text-align: center; }
 .win-box h2 { font-size: 22px; color: #f0c14b; margin: 4px 0; }
 .win-box .amount { font-size: 28px; font-weight: 900; color: #fff; }
-.board-item { background: #14141e; padding: 8px 10px; margin: 4px 0; border-radius: 6px; font-size: 13px; }
 .error { color: #e94560; font-size: 12px; margin: 4px 0; }
 .current-bet { text-align: center; font-size: 13px; color: #f0c14b; margin: 6px 0; }
 </style>
@@ -70,12 +63,8 @@ main { flex: 1; overflow-y: auto; padding: 8px; }
         <button class="secondary" onclick="doSignup()">회원가입</button>
       </div>
       <div id="homeContent" style="display:none;padding:12px;font-size:14px">
-        <p>하단 탭에서 시작.</p>
+        <p>하단 탭에서 게임 시작.</p>
       </div>
-    </div>
-    <div id="tab-board" class="tab">
-      <h3 style="font-size:15px;margin-bottom:8px">게시판</h3>
-      <div id="boardList"></div>
     </div>
     <div id="tab-gamble" class="tab">
       <div style="display:flex;gap:6px;margin-bottom:8px">
@@ -84,7 +73,7 @@ main { flex: 1; overflow-y: auto; padding: 8px; }
         <button class="game-btn secondary" style="padding:8px;font-size:13px" onclick="showGame('blackjack')">블랙잭</button>
       </div>
       <div id="game-baccarat" class="game-panel">
-        <div style="text-align:center;color:#888;font-size:12px" id="baccStatus">베팅 <span id="baccCountdown">5</span>초</div>
+        <div style="text-align:center;color:#888;font-size:12px" id="baccStatus">베팅</div>
         <div style="display:flex;justify-content:space-between;font-size:12px;color:#f0c14b;margin:4px 0;padding:0 8px">
           <span>플레이어 <span id="pScore">-</span></span>
           <span>뱅커 <span id="bScore">-</span></span>
@@ -97,7 +86,7 @@ main { flex: 1; overflow-y: auto; padding: 8px; }
           <div class="bet-box" data-side="banker" onclick="selectBet('banker')"><div class="label">뱅커</div><div class="amount" id="betBanker">0</div></div>
         </div>
         <div class="current-bet">선택: <span id="baccSelected">0</span></div>
-        <div class="chips" id="baccChips">
+        <div class="chips">
           <div class="chip" onclick="addChip('bacc',2000)">2K</div>
           <div class="chip" onclick="addChip('bacc',4000)">4K</div>
           <div class="chip" onclick="addChip('bacc',8000)">8K</div>
@@ -106,6 +95,7 @@ main { flex: 1; overflow-y: auto; padding: 8px; }
         </div>
         <button class="game-btn" onclick="placeBaccBet()">베팅</button>
         <button class="game-btn secondary" onclick="clearBet('bacc')">초기화</button>
+        <button class="game-btn" onclick="startBacc()" style="margin-top:4px">시작</button>
       </div>
       <div id="game-slot" class="game-panel" style="display:none">
         <div class="slot-reels">
@@ -142,13 +132,6 @@ main { flex: 1; overflow-y: auto; padding: 8px; }
         <div id="bjStatus" style="font-size:13px;margin-top:6px"></div>
       </div>
     </div>
-    <div id="tab-chat" class="tab">
-      <div class="chat-list" id="chatList"></div>
-      <div class="chat-input">
-        <input id="chatInput" placeholder="메시지" onkeypress="if(event.key==='Enter')sendChat()">
-        <button onclick="sendChat()">전송</button>
-      </div>
-    </div>
     <div id="tab-profile" class="tab">
       <div class="auth-box">
         <h3 id="profileNick" style="font-size:15px"></h3>
@@ -159,16 +142,14 @@ main { flex: 1; overflow-y: auto; padding: 8px; }
   </main>
   <nav class="bottom-nav">
     <button class="active" onclick="switchTab('home')"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>홈</button>
-    <button onclick="switchTab('board')"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>게시판</button>
     <button onclick="switchTab('gamble')"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M21 6H3c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-1 10H4v-4h16v4zm0-6H4V8h16v2z"/></svg>도박</button>
-    <button onclick="switchTab('chat')"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>채팅</button>
     <button onclick="switchTab('profile')"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>내정보</button>
   </nav>
 </div>
 <div class="win-overlay" id="winOverlay">
   <div class="win-box">
-    <div style="font-size:12px;color:#f0c14b">플레이어</div>
-    <h2>이기셨습니다</h2>
+    <div style="font-size:12px;color:#f0c14b">결과</div>
+    <h2 id="winTitle">이기셨습니다</h2>
     <div class="amount" id="winAmount">₩0</div>
   </div>
 </div>
@@ -194,8 +175,9 @@ let userData = null;
 let selectedSide = null;
 let slotPlays = 0;
 let bjState = null;
-let baccUnsub = null, chatUnsub = null, boardUnsub = null;
 let bets = { bacc: 0, slot: 0, bj: 0 };
+let baccTimer = null;
+let baccRunning = false;
 
 auth.onAuthStateChanged(async user => {
   if (user) {
@@ -208,10 +190,8 @@ auth.onAuthStateChanged(async user => {
     document.getElementById('authBox').style.display = 'none';
     document.getElementById('homeContent').style.display = 'block';
     updateHeader();
-    listenBacc(); listenChat(); listenBoard();
   } else {
     currentUser = null; userData = null;
-    if (baccUnsub) baccUnsub(); if (chatUnsub) chatUnsub(); if (boardUnsub) boardUnsub();
     document.getElementById('authBox').style.display = 'block';
     document.getElementById('homeContent').style.display = 'none';
     updateHeader();
@@ -288,97 +268,80 @@ function selectBet(side) {
 
 async function placeBaccBet() {
   if (!currentUser || !selectedSide || bets.bacc < 100) return alert('사이드와 금액 선택');
-  const amt = bets.bacc;
-  if (amt > userData.balance) return alert('잔액 부족');
-  const roundRef = db.collection('baccarat').doc('current');
-  await db.runTransaction(async tx => {
-    const snap = await tx.get(roundRef);
-    const r = snap.exists ? snap.data() : { phase: 'betting', start: Date.now(), playerBets: 0, bankerBets: 0, tieBets: 0, bets: {} };
-    if (r.phase !== 'betting') throw new Error('베팅 종료');
-    r.bets = r.bets || {};
-    r.bets[currentUser.uid] = { side: selectedSide, amount: amt };
-    r[selectedSide + 'Bets'] = (r[selectedSide + 'Bets'] || 0) + amt;
-    tx.set(roundRef, r);
-  });
-  userData.balance -= amt;
-  await db.collection('users').doc(currentUser.uid).update({ balance: userData.balance });
-  updateHeader();
-  clearBet('bacc');
+  if (bets.bacc > userData.balance) return alert('잔액 부족');
+  document.getElementById('bet' + selectedSide.charAt(0).toUpperCase() + selectedSide.slice(1)).textContent = bets.bacc.toLocaleString();
 }
 
-function listenBacc() {
-  if (baccUnsub) baccUnsub();
-  baccUnsub = db.collection('baccarat').doc('current').onSnapshot(snap => {
-    const r = snap.exists ? snap.data() : null;
-    if (!r) {
-      db.collection('baccarat').doc('current').set({ phase: 'betting', start: Date.now(), playerBets: 0, bankerBets: 0, tieBets: 0, bets: {} });
-      return;
-    }
-    document.getElementById('betPlayer').textContent = (r.playerBets || 0).toLocaleString();
-    document.getElementById('betBanker').textContent = (r.bankerBets || 0).toLocaleString();
-    document.getElementById('betTie').textContent = (r.tieBets || 0).toLocaleString();
-    if (r.phase === 'betting') {
-      const left = Math.max(0, Math.ceil((5000 - (Date.now() - (r.start || 0))) / 1000));
-      document.getElementById('baccCountdown').textContent = left;
-      document.getElementById('baccStatus').innerHTML = '베팅 <span id="baccCountdown">' + left + '</span>초';
-      document.getElementById('pScore').textContent = '-';
-      document.getElementById('bScore').textContent = '-';
-      if (left <= 0) startBaccDeal();
-    }
-    if (r.phase === 'dealing') {
-      document.getElementById('baccStatus').textContent = '딜 중';
-      window._baccCards = r.cards;
-      if (!document.getElementById('playerCards').children.length) animateDeal();
-    }
-    if (r.phase === 'result' && r.winner) {
-      document.getElementById('baccStatus').textContent = r.winner === 'tie' ? '타이' : (r.winner === 'player' ? '플레이어 승' : '뱅커 승');
-      document.getElementById('pScore').textContent = r.pVal ?? '-';
-      document.getElementById('bScore').textContent = r.bVal ?? '-';
-      showBaccResult(r);
-    }
-  });
-}
-
-async function startBaccDeal() {
-  const roundRef = db.collection('baccarat').doc('current');
-  await db.runTransaction(async tx => {
-    const snap = await tx.get(roundRef);
-    const r = snap.data();
-    if (!r || r.phase !== 'betting') return;
-    const deck = shuffle([...Array(52)].map((_, i) => i));
-    const cards = { player: [deck[0], deck[2]], banker: [deck[1], deck[3]] };
-    tx.update(roundRef, { phase: 'dealing', cards, pVal: 0, bVal: 0 });
-  });
-  animateDeal();
-}
-
-function animateDeal() {
+function startBacc() {
+  if (baccRunning || !currentUser) return;
+  baccRunning = true;
+  document.getElementById('baccStatus').textContent = '딜 중';
+  const deck = shuffle([...Array(52)].map((_,i)=>i));
+  const cards = { player: [deck[0], deck[2]], banker: [deck[1], deck[3]] };
   const pc = document.getElementById('playerCards');
   const bc = document.getElementById('bankerCards');
   pc.innerHTML = ''; bc.innerHTML = '';
   document.getElementById('pScore').textContent = '0';
   document.getElementById('bScore').textContent = '0';
   const seq = [
-    { side: 'player', delay: 0 },
-    { side: 'banker', delay: 1000 },
-    { side: 'player', delay: 2000 },
-    { side: 'banker', delay: 3000 }
+    { side: 'player', c: cards.player[0], delay: 0 },
+    { side: 'banker', c: cards.banker[0], delay: 1000 },
+    { side: 'player', c: cards.player[1], delay: 2000 },
+    { side: 'banker', c: cards.banker[1], delay: 3000 }
   ];
   seq.forEach((s, i) => {
     setTimeout(() => {
-      const cards = window._baccCards;
-      if (!cards) return;
-      const c = s.side === 'player' ? cards.player[Math.floor(i/2)] : cards.banker[Math.floor(i/2)];
       const el = s.side === 'player' ? pc : bc;
-      el.appendChild(makeCard(c));
+      el.appendChild(makeCard(s.c));
       playCardSound();
-      const shownP = [...pc.querySelectorAll('.card')].map(x => parseInt(x.dataset.idx));
-      const shownB = [...bc.querySelectorAll('.card')].map(x => parseInt(x.dataset.idx));
+      const shownP = [...pc.querySelectorAll('.card')].map(x => +x.dataset.idx);
+      const shownB = [...bc.querySelectorAll('.card')].map(x => +x.dataset.idx);
       document.getElementById('pScore').textContent = bacValue(shownP);
       document.getElementById('bScore').textContent = bacValue(shownB);
-      if (i === 3) setTimeout(resolveBacc, 800);
+      if (i === 3) setTimeout(() => finishBacc(cards), 600);
     }, s.delay);
   });
+}
+
+async function finishBacc(cards) {
+  const pVal = bacValue(cards.player);
+  const bVal = bacValue(cards.banker);
+  const winner = pVal > bVal ? 'player' : bVal > pVal ? 'banker' : 'tie';
+  document.getElementById('baccStatus').textContent = winner === 'tie' ? '타이' : (winner === 'player' ? '플레이어 승' : '뱅커 승');
+  document.getElementById('pScore').textContent = pVal;
+  document.getElementById('bScore').textContent = bVal;
+  const myAmt = bets.bacc;
+  const mySide = selectedSide;
+  if (myAmt && mySide) {
+    userData.balance -= myAmt;
+    if (mySide === winner) {
+      const payout = mySide === 'tie' ? myAmt * 8 : myAmt * 2;
+      userData.balance += payout;
+      document.getElementById('winTitle').textContent = '이기셨습니다';
+      document.getElementById('winAmount').textContent = '₩' + payout.toLocaleString();
+    } else {
+      document.getElementById('winTitle').textContent = '패배';
+      document.getElementById('winAmount').textContent = '-₩' + myAmt.toLocaleString();
+    }
+    await db.collection('users').doc(currentUser.uid).update({ balance: userData.balance });
+    updateHeader();
+    document.getElementById('winOverlay').style.display = 'flex';
+    setTimeout(() => document.getElementById('winOverlay').style.display = 'none', 1000);
+  }
+  clearBet('bacc');
+  selectedSide = null;
+  document.querySelectorAll('.bet-box').forEach(b => b.classList.remove('selected'));
+  document.getElementById('betPlayer').textContent = '0';
+  document.getElementById('betBanker').textContent = '0';
+  document.getElementById('betTie').textContent = '0';
+  setTimeout(() => {
+    document.getElementById('playerCards').innerHTML = '';
+    document.getElementById('bankerCards').innerHTML = '';
+    document.getElementById('pScore').textContent = '-';
+    document.getElementById('bScore').textContent = '-';
+    document.getElementById('baccStatus').textContent = '베팅';
+    baccRunning = false;
+  }, 5000);
 }
 
 function makeCard(idx) {
@@ -393,24 +356,6 @@ function makeCard(idx) {
   return d;
 }
 
-async function resolveBacc() {
-  const roundRef = db.collection('baccarat').doc('current');
-  await db.runTransaction(async tx => {
-    const snap = await tx.get(roundRef);
-    const r = snap.data();
-    if (!r || r.phase !== 'dealing') return;
-    const pVal = bacValue(r.cards.player);
-    const bVal = bacValue(r.cards.banker);
-    const winner = pVal > bVal ? 'player' : bVal > pVal ? 'banker' : 'tie';
-    tx.update(roundRef, { phase: 'result', winner, pVal, bVal });
-  });
-  setTimeout(async () => {
-    await db.collection('baccarat').doc('current').set({ phase: 'betting', start: Date.now(), playerBets: 0, bankerBets: 0, tieBets: 0, bets: {} });
-    document.getElementById('playerCards').innerHTML = '';
-    document.getElementById('bankerCards').innerHTML = '';
-  }, 5000);
-}
-
 function bacValue(cards) {
   let v = 0;
   cards.forEach(c => {
@@ -420,33 +365,18 @@ function bacValue(cards) {
   return v % 10;
 }
 
-async function showBaccResult(r) {
-  if (!userData) return;
-  const my = r.bets && r.bets[currentUser.uid];
-  const won = my && my.side === r.winner;
-  if (won) {
-    const payout = my.side === 'tie' ? my.amount * 8 : my.amount * 2;
-    userData.balance += payout;
-    await db.collection('users').doc(currentUser.uid).update({ balance: userData.balance });
-    document.getElementById('winAmount').textContent = '₩' + payout.toLocaleString();
-    document.querySelector('.win-box div').textContent = r.winner === 'player' ? '플레이어' : r.winner === 'banker' ? '뱅커' : '타이';
-    document.querySelector('.win-box h2').textContent = '이기셨습니다';
-    updateHeader();
-  } else if (my) {
-    document.getElementById('winAmount').textContent = '-₩' + my.amount.toLocaleString();
-    document.querySelector('.win-box div').textContent = r.winner === 'player' ? '플레이어' : r.winner === 'banker' ? '뱅커' : '타이';
-    document.querySelector('.win-box h2').textContent = '패배';
-  } else return;
-  document.getElementById('winOverlay').style.display = 'flex';
-  setTimeout(() => document.getElementById('winOverlay').style.display = 'none', 1000);
+function shuffle(a) {
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
 }
 
 let cardAudio = null;
 function playCardSound() {
   try {
-    if (!cardAudio) {
-      cardAudio = new AudioContext();
-    }
+    if (!cardAudio) cardAudio = new AudioContext();
     const o = cardAudio.createOscillator();
     const g = cardAudio.createGain();
     o.type = 'triangle';
@@ -454,19 +384,9 @@ function playCardSound() {
     o.frequency.exponentialRampToValueAtTime(60, cardAudio.currentTime + 0.08);
     g.gain.setValueAtTime(0.15, cardAudio.currentTime);
     g.gain.exponentialRampToValueAtTime(0.01, cardAudio.currentTime + 0.1);
-    o.connect(g);
-    g.connect(cardAudio.destination);
-    o.start();
-    o.stop(cardAudio.currentTime + 0.1);
+    o.connect(g); g.connect(cardAudio.destination);
+    o.start(); o.stop(cardAudio.currentTime + 0.1);
   } catch (e) {}
-}
-
-function shuffle(a) {
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
 }
 
 async function spinSlot() {
@@ -501,45 +421,6 @@ async function spinSlot() {
         }
       }
     }, 70);
-  });
-}
-
-function listenChat() {
-  if (chatUnsub) chatUnsub();
-  chatUnsub = db.collection('chat').orderBy('ts').limitToLast(40).onSnapshot(snap => {
-    const list = document.getElementById('chatList');
-    list.innerHTML = '';
-    snap.forEach(doc => {
-      const m = doc.data();
-      const div = document.createElement('div');
-      div.className = 'chat-msg';
-      div.innerHTML = `<span class="nick">${m.nick}</span>${m.text}`;
-      list.appendChild(div);
-    });
-    list.scrollTop = 99999;
-  });
-}
-
-async function sendChat() {
-  if (!userData) return;
-  const text = document.getElementById('chatInput').value.trim();
-  if (!text) return;
-  await db.collection('chat').add({ nick: userData.nickname, text, ts: Date.now() });
-  document.getElementById('chatInput').value = '';
-}
-
-function listenBoard() {
-  if (boardUnsub) boardUnsub();
-  boardUnsub = db.collection('users').onSnapshot(snap => {
-    const list = document.getElementById('boardList');
-    list.innerHTML = '';
-    snap.forEach(doc => {
-      const u = doc.data();
-      const d = document.createElement('div');
-      d.className = 'board-item';
-      d.textContent = u.nickname + ' · ₩' + (u.balance || 0).toLocaleString();
-      list.appendChild(d);
-    });
   });
 }
 
