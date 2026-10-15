@@ -327,10 +327,11 @@ function listenBacc() {
     }
     if (r.phase === 'dealing') {
       document.getElementById('baccStatus').textContent = '딜 중';
-      renderBaccCards(r);
+      window._baccCards = r.cards;
+      if (!document.getElementById('playerCards').children.length) animateDeal();
     }
     if (r.phase === 'result' && r.winner) {
-      document.getElementById('baccStatus').textContent = '결과';
+      document.getElementById('baccStatus').textContent = r.winner === 'tie' ? '타이' : (r.winner === 'player' ? '플레이어 승' : '뱅커 승');
       document.getElementById('pScore').textContent = r.pVal ?? '-';
       document.getElementById('bScore').textContent = r.bVal ?? '-';
       showBaccResult(r);
@@ -345,24 +346,39 @@ async function startBaccDeal() {
     const r = snap.data();
     if (!r || r.phase !== 'betting') return;
     const deck = shuffle([...Array(52)].map((_, i) => i));
-    const cards = { player: [], banker: [] };
-    let idx = 0;
-    for (let i = 0; i < 2; i++) {
-      cards.player.push(deck[idx++]);
-      cards.banker.push(deck[idx++]);
-    }
-    tx.update(roundRef, { phase: 'dealing', cards });
+    const cards = { player: [deck[0], deck[2]], banker: [deck[1], deck[3]] };
+    tx.update(roundRef, { phase: 'dealing', cards, pVal: 0, bVal: 0 });
   });
-  setTimeout(() => resolveBacc(), 4500);
+  animateDeal();
 }
 
-function renderBaccCards(r) {
+function animateDeal() {
   const pc = document.getElementById('playerCards');
   const bc = document.getElementById('bankerCards');
-  if (pc.children.length || bc.children.length) return;
   pc.innerHTML = ''; bc.innerHTML = '';
-  (r.cards?.player || []).forEach((c, i) => setTimeout(() => { pc.appendChild(makeCard(c)); playCardSound(); }, i * 1000));
-  (r.cards?.banker || []).forEach((c, i) => setTimeout(() => { bc.appendChild(makeCard(c)); playCardSound(); }, i * 1000 + 500));
+  document.getElementById('pScore').textContent = '0';
+  document.getElementById('bScore').textContent = '0';
+  const seq = [
+    { side: 'player', delay: 0 },
+    { side: 'banker', delay: 1000 },
+    { side: 'player', delay: 2000 },
+    { side: 'banker', delay: 3000 }
+  ];
+  seq.forEach((s, i) => {
+    setTimeout(() => {
+      const cards = window._baccCards;
+      if (!cards) return;
+      const c = s.side === 'player' ? cards.player[Math.floor(i/2)] : cards.banker[Math.floor(i/2)];
+      const el = s.side === 'player' ? pc : bc;
+      el.appendChild(makeCard(c));
+      playCardSound();
+      const shownP = [...pc.querySelectorAll('.card')].map(x => parseInt(x.dataset.idx));
+      const shownB = [...bc.querySelectorAll('.card')].map(x => parseInt(x.dataset.idx));
+      document.getElementById('pScore').textContent = bacValue(shownP);
+      document.getElementById('bScore').textContent = bacValue(shownB);
+      if (i === 3) setTimeout(resolveBacc, 800);
+    }, s.delay);
+  });
 }
 
 function makeCard(idx) {
@@ -373,6 +389,7 @@ function makeCard(idx) {
   const d = document.createElement('div');
   d.className = 'card' + (suit === '♥' || suit === '♦' ? ' red' : '');
   d.textContent = rank + suit;
+  d.dataset.idx = idx;
   return d;
 }
 
@@ -389,7 +406,9 @@ async function resolveBacc() {
   });
   setTimeout(async () => {
     await db.collection('baccarat').doc('current').set({ phase: 'betting', start: Date.now(), playerBets: 0, bankerBets: 0, tieBets: 0, bets: {} });
-  }, 8000);
+    document.getElementById('playerCards').innerHTML = '';
+    document.getElementById('bankerCards').innerHTML = '';
+  }, 5000);
 }
 
 function bacValue(cards) {
@@ -402,18 +421,24 @@ function bacValue(cards) {
 }
 
 async function showBaccResult(r) {
-  if (!userData || !r.bets || !r.bets[currentUser.uid]) return;
-  const my = r.bets[currentUser.uid];
-  if (my.side === r.winner) {
+  if (!userData) return;
+  const my = r.bets && r.bets[currentUser.uid];
+  const won = my && my.side === r.winner;
+  if (won) {
     const payout = my.side === 'tie' ? my.amount * 8 : my.amount * 2;
     userData.balance += payout;
     await db.collection('users').doc(currentUser.uid).update({ balance: userData.balance });
     document.getElementById('winAmount').textContent = '₩' + payout.toLocaleString();
     document.querySelector('.win-box div').textContent = r.winner === 'player' ? '플레이어' : r.winner === 'banker' ? '뱅커' : '타이';
-    document.getElementById('winOverlay').style.display = 'flex';
-    setTimeout(() => document.getElementById('winOverlay').style.display = 'none', 1000);
+    document.querySelector('.win-box h2').textContent = '이기셨습니다';
     updateHeader();
-  }
+  } else if (my) {
+    document.getElementById('winAmount').textContent = '-₩' + my.amount.toLocaleString();
+    document.querySelector('.win-box div').textContent = r.winner === 'player' ? '플레이어' : r.winner === 'banker' ? '뱅커' : '타이';
+    document.querySelector('.win-box h2').textContent = '패배';
+  } else return;
+  document.getElementById('winOverlay').style.display = 'flex';
+  setTimeout(() => document.getElementById('winOverlay').style.display = 'none', 1000);
 }
 
 let cardAudio = null;
