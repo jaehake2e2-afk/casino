@@ -84,7 +84,11 @@ main { flex: 1; overflow-y: auto; padding: 8px; }
         <button class="game-btn secondary" style="padding:8px;font-size:13px" onclick="showGame('blackjack')">블랙잭</button>
       </div>
       <div id="game-baccarat" class="game-panel">
-        <div style="text-align:center;color:#888;font-size:12px" id="baccStatus">베팅</div>
+        <div style="text-align:center;color:#888;font-size:12px" id="baccStatus">베팅 <span id="baccCountdown">5</span>초</div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:#f0c14b;margin:4px 0;padding:0 8px">
+          <span>플레이어 <span id="pScore">-</span></span>
+          <span>뱅커 <span id="bScore">-</span></span>
+        </div>
         <div class="card-row" id="playerCards"></div>
         <div class="card-row" id="bankerCards"></div>
         <div class="bet-area">
@@ -313,9 +317,24 @@ function listenBacc() {
     document.getElementById('betPlayer').textContent = (r.playerBets || 0).toLocaleString();
     document.getElementById('betBanker').textContent = (r.bankerBets || 0).toLocaleString();
     document.getElementById('betTie').textContent = (r.tieBets || 0).toLocaleString();
-    if (r.phase === 'betting' && Date.now() - (r.start || 0) > 5000) startBaccDeal();
-    if (r.phase === 'dealing') renderBaccCards(r);
-    if (r.phase === 'result' && r.winner) showBaccResult(r);
+    if (r.phase === 'betting') {
+      const left = Math.max(0, Math.ceil((5000 - (Date.now() - (r.start || 0))) / 1000));
+      document.getElementById('baccCountdown').textContent = left;
+      document.getElementById('baccStatus').innerHTML = '베팅 <span id="baccCountdown">' + left + '</span>초';
+      document.getElementById('pScore').textContent = '-';
+      document.getElementById('bScore').textContent = '-';
+      if (left <= 0) startBaccDeal();
+    }
+    if (r.phase === 'dealing') {
+      document.getElementById('baccStatus').textContent = '딜 중';
+      renderBaccCards(r);
+    }
+    if (r.phase === 'result' && r.winner) {
+      document.getElementById('baccStatus').textContent = '결과';
+      document.getElementById('pScore').textContent = r.pVal ?? '-';
+      document.getElementById('bScore').textContent = r.bVal ?? '-';
+      showBaccResult(r);
+    }
   });
 }
 
@@ -334,15 +353,16 @@ async function startBaccDeal() {
     }
     tx.update(roundRef, { phase: 'dealing', cards });
   });
-  setTimeout(() => resolveBacc(), 6000);
+  setTimeout(() => resolveBacc(), 4500);
 }
 
 function renderBaccCards(r) {
   const pc = document.getElementById('playerCards');
   const bc = document.getElementById('bankerCards');
+  if (pc.children.length || bc.children.length) return;
   pc.innerHTML = ''; bc.innerHTML = '';
-  (r.cards?.player || []).forEach((c, i) => setTimeout(() => pc.appendChild(makeCard(c)), i * 1500));
-  (r.cards?.banker || []).forEach((c, i) => setTimeout(() => bc.appendChild(makeCard(c)), i * 1500 + 750));
+  (r.cards?.player || []).forEach((c, i) => setTimeout(() => { pc.appendChild(makeCard(c)); playCardSound(); }, i * 1000));
+  (r.cards?.banker || []).forEach((c, i) => setTimeout(() => { bc.appendChild(makeCard(c)); playCardSound(); }, i * 1000 + 500));
 }
 
 function makeCard(idx) {
@@ -391,9 +411,29 @@ async function showBaccResult(r) {
     document.getElementById('winAmount').textContent = '₩' + payout.toLocaleString();
     document.querySelector('.win-box div').textContent = r.winner === 'player' ? '플레이어' : r.winner === 'banker' ? '뱅커' : '타이';
     document.getElementById('winOverlay').style.display = 'flex';
-    setTimeout(() => document.getElementById('winOverlay').style.display = 'none', 3500);
+    setTimeout(() => document.getElementById('winOverlay').style.display = 'none', 1000);
     updateHeader();
   }
+}
+
+let cardAudio = null;
+function playCardSound() {
+  try {
+    if (!cardAudio) {
+      cardAudio = new AudioContext();
+    }
+    const o = cardAudio.createOscillator();
+    const g = cardAudio.createGain();
+    o.type = 'triangle';
+    o.frequency.setValueAtTime(180, cardAudio.currentTime);
+    o.frequency.exponentialRampToValueAtTime(60, cardAudio.currentTime + 0.08);
+    g.gain.setValueAtTime(0.15, cardAudio.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.01, cardAudio.currentTime + 0.1);
+    o.connect(g);
+    g.connect(cardAudio.destination);
+    o.start();
+    o.stop(cardAudio.currentTime + 0.1);
+  } catch (e) {}
 }
 
 function shuffle(a) {
@@ -550,4 +590,3 @@ async function endBJ() {
 </script>
 </body>
 </html>
-
