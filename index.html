@@ -318,7 +318,7 @@ async function finishBacc(cards) {
       const payout = mySide === 'tie' ? myAmt * 8 : myAmt * 2;
       userData.balance += payout;
       document.getElementById('winTitle').textContent = '이기셨습니다';
-      document.getElementById('winAmount').textContent = '₩' + payout.toLocaleString();
+      document.getElementById('winAmount').textContent = '+₩' + (payout - myAmt).toLocaleString();
     } else {
       document.getElementById('winTitle').textContent = '패배';
       document.getElementById('winAmount').textContent = '-₩' + myAmt.toLocaleString();
