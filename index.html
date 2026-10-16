@@ -314,15 +314,18 @@ async function finishBacc(cards) {
   const mySide = selectedSide;
   if (myAmt && mySide) {
     userData.balance -= myAmt;
-    if (mySide === winner) {
-      const payout = mySide === 'tie' ? myAmt * 8 : myAmt * 2;
-      userData.balance += payout;
-      document.getElementById('winTitle').textContent = '이기셨습니다';
-      document.getElementById('winAmount').textContent = '+₩' + (payout - myAmt).toLocaleString();
-    } else {
-      document.getElementById('winTitle').textContent = '패배';
-      document.getElementById('winAmount').textContent = '-₩' + myAmt.toLocaleString();
+    let receive = 0;
+    let title = '패배';
+    if (winner === 'tie' && (mySide === 'player' || mySide === 'banker')) {
+      receive = myAmt;
+      title = '무승부';
+    } else if (mySide === winner) {
+      receive = mySide === 'player' ? myAmt * 2 : mySide === 'banker' ? Math.floor(myAmt * 1.95) : myAmt * 8;
+      title = '이기셨습니다';
     }
+    if (receive > 0) userData.balance += receive;
+    document.getElementById('winTitle').textContent = title;
+    document.getElementById('winAmount').textContent = receive > 0 ? '₩' + receive.toLocaleString() : '-₩' + myAmt.toLocaleString();
     await db.collection('users').doc(currentUser.uid).update({ balance: userData.balance });
     updateHeader();
     document.getElementById('winOverlay').style.display = 'flex';
