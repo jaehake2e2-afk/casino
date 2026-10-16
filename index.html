@@ -22,7 +22,7 @@ main { flex: 1; overflow-y: auto; padding: 8px; }
 .auth-box input { width: 100%; padding: 10px; margin: 6px 0; border-radius: 6px; border: 1px solid #2a2a38; background: #0a0a12; color: #fff; font-size: 14px; }
 .auth-box button, .game-btn { width: 100%; padding: 11px; background: #c9a227; border: none; border-radius: 6px; color: #111; font-weight: 700; font-size: 14px; cursor: pointer; margin-top: 6px; }
 .game-btn.secondary { background: #1a1a26; color: #ddd; border: 1px solid #333; }
-.card-row { display: flex; gap: 4px; min-height: 72px; margin: 8px 0; align-items: center; justify-content: center; }
+.game-panel { position: relative; }
 .card { width: 46px; height: 64px; background: #fff; color: #111; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.5); }
 .card.red { color: #c00; }
 .card.back { background: linear-gradient(135deg, #1a1a2e, #8b1a1a); color: transparent; }
@@ -42,6 +42,11 @@ main { flex: 1; overflow-y: auto; padding: 8px; }
 .win-box .amount { font-size: 28px; font-weight: 900; color: #fff; }
 .error { color: #e94560; font-size: 12px; margin: 4px 0; }
 .current-bet { text-align: center; font-size: 13px; color: #f0c14b; margin: 6px 0; }
+.roadmap { position: absolute; right: 8px; bottom: 60px; width: 140px; height: 100px; background: #111118; border: 1px solid #333; border-radius: 6px; overflow: hidden; display: flex; flex-wrap: wrap; align-content: flex-start; padding: 4px; gap: 2px; }
+.bead { width: 14px; height: 14px; border-radius: 50%; border: 1.5px solid #fff; flex-shrink: 0; }
+.bead.p { background: #3b82f6; }
+.bead.b { background: #ef4444; }
+.bead.t { background: #22c55e; }
 </style>
 </head>
 <body>
@@ -96,6 +101,7 @@ main { flex: 1; overflow-y: auto; padding: 8px; }
         <button class="game-btn" onclick="placeBaccBet()">베팅</button>
         <button class="game-btn secondary" onclick="clearBet('bacc')">초기화</button>
         <button class="game-btn" onclick="startBacc()" style="margin-top:4px">시작</button>
+        <div class="roadmap" id="roadmap"></div>
       </div>
       <div id="game-slot" class="game-panel" style="display:none">
         <div class="slot-reels">
@@ -176,8 +182,29 @@ let selectedSide = null;
 let slotPlays = 0;
 let bjState = null;
 let bets = { bacc: 0, slot: 0, bj: 0 };
-let baccTimer = null;
-let baccRunning = false;
+let baccHistory = [];
+function renderRoadmap() {
+  const el = document.getElementById('roadmap');
+  if (!el) return;
+  el.innerHTML = '';
+  const cols = [];
+  let last = null;
+  baccHistory.forEach(r => {
+    if (r === last && cols.length && cols[cols.length-1].length < 6) {
+      cols[cols.length-1].push(r);
+    } else {
+      cols.push([r]);
+      last = r;
+    }
+  });
+  cols.slice(-8).forEach(col => {
+    col.forEach(r => {
+      const d = document.createElement('div');
+      d.className = 'bead ' + (r === 'player' ? 'p' : r === 'banker' ? 'b' : 't');
+      el.appendChild(d);
+    });
+  });
+}
 
 auth.onAuthStateChanged(async user => {
   if (user) {
@@ -310,6 +337,9 @@ async function finishBacc(cards) {
   document.getElementById('baccStatus').textContent = winner === 'tie' ? '타이' : (winner === 'player' ? '플레이어 승' : '뱅커 승');
   document.getElementById('pScore').textContent = pVal;
   document.getElementById('bScore').textContent = bVal;
+  baccHistory.push(winner);
+  if (baccHistory.length > 60) baccHistory.shift();
+  renderRoadmap();
   const myAmt = bets.bacc;
   const mySide = selectedSide;
   if (myAmt && mySide) {
